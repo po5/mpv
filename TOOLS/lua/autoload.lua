@@ -119,7 +119,7 @@ function get_playlist_filenames(playlist)
     local filenames = {}
     for i = 1, #playlist do
         local _, file = utils.split_path(playlist[i].filename)
-        filenames[file] = true
+        filenames[file] = playlist[i].filename
     end
     return filenames
 end
@@ -189,6 +189,7 @@ function find_and_add_entries()
 
     local append = {[-1] = {}, [1] = {}}
     local filenames = get_playlist_filenames(pl)
+    local known_filenames = {[filename] = true}
     for direction = -1, 1, 2 do -- 2 iterations, with direction = -1 and +1
         for i = 1, MAXENTRIES do
             local pos = current + i * direction
@@ -212,6 +213,7 @@ function find_and_add_entries()
                     end
                 end
             end
+            known_filenames[file] = true
         end
         if pl_count == 1 and direction == -1 and #append[-1] > 0 then
             for i = 1, #append[-1] do
@@ -224,6 +226,23 @@ function find_and_add_entries()
     if pl_count > 1 then
         add_files(append[1])
         add_files(append[-1])
+    end
+
+    local removed_files = {}
+    for file, filename in pairs(filenames) do
+        if not known_filenames[file] then
+            msg.info("Removing " .. file)
+            removed_files[filename] = true
+        end
+    end
+
+    if next(removed_files) then
+        local playlist = mp.get_property_native("playlist", {})
+        for i = #playlist, 1, -1 do
+            if removed_files[playlist[i].filename] then
+                mp.commandv("playlist-remove", i - 1)
+            end
+        end
     end
 end
 
